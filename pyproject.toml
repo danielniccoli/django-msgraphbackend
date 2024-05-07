@@ -1,0 +1,27 @@
+[build-system]
+requires = ["setuptools", "django"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "django-msgraphbackend"
+version = "1.0.0"
+authors = [{ name = "Daniel Niccoli", email = "daniel.niccoli@gmail.com" }]
+description = "A Microsoft Graph Email Backend for Django."
+readme = "README.md"
+requires-python = ">=3.9"
+keywords = ["Django", "Backend", "EmailBackend", "Microsoft Graph"]
+license = {file = "LICENSE"}
+classifiers = [
+    "Framework :: Django",
+    "Framework :: Django :: 4.2",
+    "Framework :: Django :: 5.0",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+]
+
+[project.urls]
+Homepage = "https://github.com/danielniccoli/django-msgraphbackend"
+Repository = "https://github.com/danielniccoli/django-msgraphbackend.git"
+Issues = "https://github.com/danielniccoli/django-msgraphbackend/issues"
