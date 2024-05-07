@@ -1,0 +1,17 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Python Debugger: Django",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}\\manage.py",
+            "args": [
+                "sendtestemail",
+                "daniel.niccoli@gmail.com"
+            ],
+            "django": true,
+            "justMyCode": true
+        }
+    ]
+}
