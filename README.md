@@ -25,6 +25,7 @@ MSGRAPH_TENANT_ID = "..."
 MSGRAPH_CLIENT_ID = "..."
 MSGRAPH_CLIENT_SECRET = "..."
 MSGRAPH_USER_ID = "..."  # Optional
+MSGRAPH_USE_JSON_API = "..."  # Optional
 ```
 
 The `MSGRAPH_USER_ID` is optional and not needed if you follow the instructions in section [Microsoft Entra](#microsoft-entra)
@@ -98,6 +99,7 @@ The *Microsoft Graph Backend for Django* requires the following settings:
 | MSGRAPH_CLIENT_ID     | Yes      | The [application (client) ID](https://learn.microsoft.com/en-us/graph/auth-register-app-v2) of your Microsoft Entra app. |
 | MSGRAPH_CLIENT_SECRET | Yes      | The secret to your Microsoft Entra application. |
 | MSGRAPH_USER_ID       | No       | If you grant your application the `User.Read.All` application permission, this setting is not required. |
+| MSGRAPH_USE_JSON_API  | No       | Enables mapping the original MIME EmailMessage to Microsoft Graph-typical JSON format. It works better if EmailMultiAlternatives is used as basis for email message sent using the EmailBackend |
 
 
 
@@ -170,4 +172,5 @@ This mode requires setting `MSGRAPH_USER_ID` to the user id of your selected mai
 
 ## Notes
 
-The *Microsoft Graph Backend for Django* sends email not in the Microsoft Graph-typical JSON, but in the MIME format. This is due to how `django.core.mail.message.EmailMessage` internally works. Its `message()` method returns the email in MIME format. Rather than writing a custom converter from MIME to JSON, that could introduce additional bugs, the format is left unchanged. The Microsoft's own [Graph SDK for Python](https://github.com/microsoftgraph/msgraph-sdk-python) does not support sending emails in MIME format.
+The *Microsoft Graph Backend for Django* as default sends email not in the Microsoft Graph-typical JSON, but in the MIME format. This is due to how `django.core.mail.message.EmailMessage` internally works. Its `message()` method returns the email in MIME format. The Microsoft's own [Graph SDK for Python](https://github.com/microsoftgraph/msgraph-sdk-python) does not support sending emails in MIME format.
+You can choose to use the custom converter from MIME to JSON, which could introduce additional bugs, by setting MSGRAPH_USE_JSON_API to True.
