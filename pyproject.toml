@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "django-msgraphbackend"
-version = "1.0.0"
+version = "1.0.1"
 authors = [{ name = "Daniel Niccoli", email = "daniel.niccoli@gmail.com" }]
 description = "A Microsoft Graph Email Backend for Django."
 readme = "README.md"
@@ -15,6 +15,10 @@ classifiers = [
     "Framework :: Django",
     "Framework :: Django :: 4.2",
     "Framework :: Django :: 5.0",
+    "Framework :: Django :: 5.1",
+    "Framework :: Django :: 5.2",
+    "Framework :: Django :: 6.0",
+    "Framework :: Django :: 6.1",
     "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",

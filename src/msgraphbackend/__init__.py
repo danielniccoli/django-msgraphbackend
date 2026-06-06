@@ -8,6 +8,7 @@ import urllib.parse
 import urllib.request
 from dataclasses import dataclass
 
+from django import VERSION as DJANGO_VERSION
 from django.conf import settings
 from django.core.exceptions import ImproperlyConfigured
 from django.core.mail.backends.base import BaseEmailBackend
@@ -106,7 +107,14 @@ class MSGraphBackend(BaseEmailBackend):
             return False
         user_id = self.user_id or self._get_user(email_message.from_email)
         url = f"https://graph.microsoft.com/v1.0/users/{user_id}/sendMail"
-        message = base64.b64encode(email_message.message().as_bytes())
+        if DJANGO_VERSION >= (6, 0):
+            from email.policy import SMTPUTF8
+
+            message = base64.b64encode(
+                email_message.message(policy=SMTPUTF8).as_bytes()
+            )
+        else:
+            message = base64.b64encode(email_message.message().as_bytes())
         headers = {
             "Content-Type": "text/plain",
             "Authorization": self._token.authorization_value,
