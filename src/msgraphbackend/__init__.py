@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import base64
 import json
+import logging
 import time
 import typing
 import urllib.parse
@@ -15,6 +16,9 @@ from django.core.mail.backends.base import BaseEmailBackend
 
 if typing.TYPE_CHECKING:
     from django.core.mail.message import EmailMessage
+
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True)
@@ -80,8 +84,15 @@ class MSGraphBackend(BaseEmailBackend):
         request = urllib.request.Request(url, data, headers)
         try:
             response = urllib.request.urlopen(request)
-        except urllib.error.HTTPError:
-            if not self.fail_silently:
+        except urllib.error.HTTPError as err:
+            msgraph_error = err.read().decode("utf-8", errors="replace")
+            err.add_note(f"Microsoft Graph API error: {msgraph_error}")
+            if self.fail_silently:
+                logger.exception(
+                    "Failed to obtain Microsoft Graph API token.",
+                    extra={"msgraph_error": msgraph_error},
+                )
+            else:
                 raise
         response_body = response.read().decode("utf-8")
         self._token = MSGraphToken(**json.loads(response_body))
@@ -123,12 +134,14 @@ class MSGraphBackend(BaseEmailBackend):
         try:
             urllib.request.urlopen(request)
         except urllib.error.HTTPError as err:
+            msgraph_error = err.read().decode("utf-8", errors="replace")
+            err.add_note(f"Microsoft Graph API error: {msgraph_error}")
             if self.fail_silently:
+                logger.exception(
+                    "Failed to send email via Microsoft Graph API.",
+                    extra={"msgraph_error": msgraph_error},
+                )
                 return False
-            error_details = json.load(err)
-            code = error_details["error"]["code"]
-            message = error_details["error"]["message"]
-            err.add_note(f"{code}: {message}")
             raise
         return True
 
@@ -145,10 +158,8 @@ class MSGraphBackend(BaseEmailBackend):
         try:
             response = urllib.request.urlopen(request)
         except urllib.error.HTTPError as err:
-            error_details = json.load(err)
-            code = error_details["error"]["code"]
-            message = error_details["error"]["message"]
-            err.add_note(f"{code}: {message}")
+            msgraph_error = err.read().decode("utf-8", errors="replace")
+            err.add_note(f"Microsoft Graph API error: {msgraph_error}")
             raise
         response_body = response.read().decode("utf-8")
         users = json.loads(response_body)
