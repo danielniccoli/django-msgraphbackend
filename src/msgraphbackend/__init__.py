@@ -5,6 +5,7 @@ import json
 import logging
 import time
 import typing
+import urllib.error
 import urllib.parse
 import urllib.request
 from dataclasses import dataclass
@@ -67,10 +68,10 @@ class MSGraphBackend(BaseEmailBackend):
         self._token: None | MSGraphToken = None
         self.open()
 
-    def open(self) -> None:
+    def open(self) -> bool | None:
         """Gets a Microsoft Graph token."""
         if self._token and self._token.is_valid:
-            return
+            return True
         url = f"https://login.microsoftonline.com/{self.tenant_id}/oauth2/v2.0/token"
         headers = {"Content-Type": "application/x-www-form-urlencoded"}
         data = urllib.parse.urlencode(
@@ -84,18 +85,23 @@ class MSGraphBackend(BaseEmailBackend):
         request = urllib.request.Request(url, data, headers)
         try:
             response = urllib.request.urlopen(request)
-        except urllib.error.HTTPError as err:
-            msgraph_error = err.read().decode("utf-8", errors="replace")
-            err.add_note(f"Microsoft Graph API error: {msgraph_error}")
+        except urllib.error.URLError as err:
+            if isinstance(err, urllib.error.HTTPError):
+                msgraph_error = err.read().decode("utf-8", errors="replace")
+                err.add_note(f"Microsoft Graph API error: {msgraph_error}")
+            else:
+                msgraph_error = str(err)
             if self.fail_silently:
                 logger.exception(
                     "Failed to obtain Microsoft Graph API token.",
                     extra={"msgraph_error": msgraph_error},
                 )
+                return None
             else:
                 raise
         response_body = response.read().decode("utf-8")
         self._token = MSGraphToken(**json.loads(response_body))
+        return True
 
     def send_messages(self, email_messages: list[EmailMessage]) -> int:
         """
@@ -105,7 +111,8 @@ class MSGraphBackend(BaseEmailBackend):
         num_sent = 0
         if not email_messages:
             return num_sent
-        self.open()
+        if self.open() is None or self._token is None:
+            return num_sent
         for message in email_messages:
             sent = self._send(message)
             if sent:
@@ -117,6 +124,8 @@ class MSGraphBackend(BaseEmailBackend):
         if not email_message.recipients():
             return False
         user_id = self.user_id or self._get_user(email_message.from_email)
+        if user_id is None:
+            return False
         url = f"https://graph.microsoft.com/v1.0/users/{user_id}/sendMail"
         if DJANGO_VERSION >= (6, 0):
             from email.policy import SMTPUTF8
@@ -133,19 +142,23 @@ class MSGraphBackend(BaseEmailBackend):
         request = urllib.request.Request(url, data=message, headers=headers)
         try:
             urllib.request.urlopen(request)
-        except urllib.error.HTTPError as err:
-            msgraph_error = err.read().decode("utf-8", errors="replace")
-            err.add_note(f"Microsoft Graph API error: {msgraph_error}")
+        except urllib.error.URLError as err:
+            if isinstance(err, urllib.error.HTTPError):
+                msgraph_error = err.read().decode("utf-8", errors="replace")
+                err.add_note(f"Microsoft Graph API error: {msgraph_error}")
+            else:
+                msgraph_error = str(err)
             if self.fail_silently:
                 logger.exception(
                     "Failed to send email via Microsoft Graph API.",
                     extra={"msgraph_error": msgraph_error},
                 )
                 return False
-            raise
+            else:
+                raise
         return True
 
-    def _get_user(self, from_address: str) -> str:
+    def _get_user(self, from_address: str) -> str | None:
         """Gets the user id who is assigned the from_address."""
         url = (
             "https://graph.microsoft.com/v1.0/users"
@@ -157,15 +170,31 @@ class MSGraphBackend(BaseEmailBackend):
         request = urllib.request.Request(url, headers=headers)
         try:
             response = urllib.request.urlopen(request)
-        except urllib.error.HTTPError as err:
-            msgraph_error = err.read().decode("utf-8", errors="replace")
-            err.add_note(f"Microsoft Graph API error: {msgraph_error}")
-            raise
+        except urllib.error.URLError as err:
+            if isinstance(err, urllib.error.HTTPError):
+                msgraph_error = err.read().decode("utf-8", errors="replace")
+                err.add_note(f"Microsoft Graph API error: {msgraph_error}")
+            else:
+                msgraph_error = str(err)
+            if self.fail_silently:
+                logger.exception(
+                    "Failed to query for Microsoft Entra ID user.",
+                    extra={"msgraph_error": msgraph_error},
+                )
+                return
+            else:
+                raise
         response_body = response.read().decode("utf-8")
         users = json.loads(response_body)
         if len(users["value"]) == 0:
-            raise ValueError(
-                f"No user found in Entra ID with the smtp address '{from_address}'."
-            )
-
+            if self.fail_silently:
+                logger.error(
+                    "No user found in Microsoft Entra ID with the smtp address '%s'.",
+                    from_address,
+                )
+                return
+            else:
+                raise ValueError(
+                    f"No user found in Microsoft Entra ID with the smtp address '{from_address}'."
+                )
         return users["value"][0]["id"]
