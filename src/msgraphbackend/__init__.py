@@ -28,12 +28,14 @@ class MSGraphToken:
     expires_in: int
     ext_expires_in: int
     access_token: str
+    expires_at: float = 0.0  # computed deadline
+    ext_expires_at: float = 0.0  # computed deadline
 
     def __post_init__(self):
         expires_in = int(time.time() + self.expires_in)
         ext_expires_in = int(time.time() + self.ext_expires_in)
-        object.__setattr__(self, "expires_in", expires_in)
-        object.__setattr__(self, "ext_expires_in", ext_expires_in)
+        object.__setattr__(self, "expires_at", expires_in)
+        object.__setattr__(self, "ext_expires_at", ext_expires_in)
 
     @property
     def authorization_value(self):
@@ -41,7 +43,7 @@ class MSGraphToken:
 
     @property
     def is_valid(self):
-        return self.expires_in > time.time()
+        return self.expires_at > time.time()
 
 
 class MSGraphBackend(BaseEmailBackend):
