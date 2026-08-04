@@ -160,10 +160,11 @@ class MSGraphBackend(BaseEmailBackend):
 
     def _get_user(self, from_address: str) -> str | None:
         """Gets the user id who is assigned the from_address."""
-        url = (
-            "https://graph.microsoft.com/v1.0/users"
-            f"?$filter=proxyAddresses/any(x:x%20eq%20'smtp:{from_address}')&$select=id"
-        )
+        # Escape the quote (') -> ('') so input can't break out of the OData literal, then url-encode.
+        proxy_address = "smtp:" + from_address.replace("'", "''")
+        filter_expr = f"proxyAddresses/any(x:x eq '{proxy_address}')"
+        query = urllib.parse.urlencode({"$filter": filter_expr, "$select": "id"})
+        url = f"https://graph.microsoft.com/v1.0/users?{query}"
         headers = {
             "Authorization": f"{self._token.authorization_value}",
         }
