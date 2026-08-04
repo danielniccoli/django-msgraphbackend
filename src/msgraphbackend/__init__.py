@@ -4,18 +4,20 @@ import base64
 import json
 import logging
 import time
-import typing
 import urllib.error
 import urllib.parse
 import urllib.request
 from dataclasses import dataclass
+from typing import TYPE_CHECKING
 
 from django import VERSION as DJANGO_VERSION
 from django.conf import settings
 from django.core.exceptions import ImproperlyConfigured
 from django.core.mail.backends.base import BaseEmailBackend
 
-if typing.TYPE_CHECKING:
+if TYPE_CHECKING:
+    from collections.abc import Sequence
+
     from django.core.mail.message import EmailMessage
 
 
@@ -31,29 +33,29 @@ class MSGraphToken:
     expires_at: float = 0.0  # computed deadline
     ext_expires_at: float = 0.0  # computed deadline
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         expires_in = int(time.time() + self.expires_in)
         ext_expires_in = int(time.time() + self.ext_expires_in)
         object.__setattr__(self, "expires_at", expires_in)
         object.__setattr__(self, "ext_expires_at", ext_expires_in)
 
     @property
-    def authorization_value(self):
+    def authorization_value(self) -> str:
         return f"{self.token_type} {self.access_token}"
 
     @property
-    def is_valid(self):
+    def is_valid(self) -> bool:
         return self.expires_at > time.time()
 
 
 class MSGraphBackend(BaseEmailBackend):
     def __init__(
         self,
-        tenant_id=None,
-        client_id=None,
-        client_secret=None,
-        user_id=None,
-        fail_silently=False,
+        tenant_id: str | None = None,
+        client_id: str | None = None,
+        client_secret: str | None = None,
+        user_id: str | None = None,
+        fail_silently: bool = False,
         **kwargs,
     ) -> None:
         super().__init__(fail_silently=fail_silently)
@@ -67,11 +69,11 @@ class MSGraphBackend(BaseEmailBackend):
         self.client_id = client_id or settings.MSGRAPH_CLIENT_ID
         self.client_secret = client_secret or settings.MSGRAPH_CLIENT_SECRET
         self.user_id = getattr(settings, "MSGRAPH_USER_ID", user_id)
-        self._token: None | MSGraphToken = None
+        self._token: MSGraphToken | None = None
         self.open()
 
     def open(self) -> bool | None:
-        """Gets a Microsoft Graph token."""
+        """Gets a Microsoft Graph API token."""
         if self._token and self._token.is_valid:
             return True
         url = f"https://login.microsoftonline.com/{self.tenant_id}/oauth2/v2.0/token"
@@ -105,7 +107,7 @@ class MSGraphBackend(BaseEmailBackend):
         self._token = MSGraphToken(**json.loads(response_body))
         return True
 
-    def send_messages(self, email_messages: list[EmailMessage]) -> int:
+    def send_messages(self, email_messages: Sequence[EmailMessage]) -> int:
         """
         Send one or more EmailMessage objects and return the number of email
         messages sent.
@@ -125,6 +127,9 @@ class MSGraphBackend(BaseEmailBackend):
         """A helper method that does the actual sending."""
         if not email_message.recipients():
             return False
+        # open() is called by send_messages() and sets self._token on success.
+        # Assert documents that runtime invariant and narrows Optional for type checkers.
+        assert self._token is not None
         user_id = self.user_id or self._get_user(email_message.from_email)
         if user_id is None:
             return False
@@ -133,7 +138,7 @@ class MSGraphBackend(BaseEmailBackend):
             from email.policy import SMTPUTF8
 
             message = base64.b64encode(
-                email_message.message(policy=SMTPUTF8).as_bytes()
+                email_message.message(policy=SMTPUTF8).as_bytes()  # pyrefly: ignore
             )
         else:
             message = base64.b64encode(email_message.message().as_bytes())
@@ -161,7 +166,10 @@ class MSGraphBackend(BaseEmailBackend):
         return True
 
     def _get_user(self, from_address: str) -> str | None:
-        """Gets the user id who is assigned the from_address."""
+        """Gets the user id who is assigned the from_address and returns the user id."""
+        # _get_user() is only reached from _send() after token acquisition.
+        # Keep this assert so Optional is narrowed at this access site too.
+        assert self._token is not None
         # Escape the quote (') -> ('') so input can't break out of the OData literal, then url-encode.
         proxy_address = "smtp:" + from_address.replace("'", "''")
         filter_expr = f"proxyAddresses/any(x:x eq '{proxy_address}')"

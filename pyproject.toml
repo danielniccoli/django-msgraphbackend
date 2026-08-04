@@ -29,3 +29,13 @@ classifiers = [
 Homepage = "https://github.com/danielniccoli/django-msgraphbackend"
 Repository = "https://github.com/danielniccoli/django-msgraphbackend.git"
 Issues = "https://github.com/danielniccoli/django-msgraphbackend/issues"
+
+[project.optional-dependencies]
+dev = [
+    "pyrefly>=1.2.0",
+    "django-stubs",
+]
+
+[tool.pyrefly]
+project-includes = ["src"]
+search-path = ["src"]
