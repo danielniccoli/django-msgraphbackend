@@ -12,6 +12,15 @@ jobs:
         python-version: ["3.10", "3.11", "3.12", "3.13", "3.14"]
     steps:
     - uses: actions/checkout@v4
+    - name: Verify tag matches package version
+      if: startsWith(github.ref, 'refs/tags/v')
+      run: |
+        tag_version="${GITHUB_REF_NAME#v}"
+        pkg_version=$(grep -m1 '^version = ' pyproject.toml | sed -E 's/version = "(.*)"/\1/')
+        if [ "$tag_version" != "$pkg_version" ]; then
+          echo "::error::Tag v$tag_version does not match pyproject.toml version $pkg_version"
+          exit 1
+        fi
     - name: Set up Python ${{ matrix.python-version }}
       uses: actions/setup-python@v5
       with:
