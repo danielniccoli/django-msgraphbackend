@@ -168,6 +168,32 @@ This mode is similar to the [more restrictive](#more-restrictive) mode, but it i
 This mode requires setting `MSGRAPH_USER_ID` to the user id of your selected mailbox.
 
 
+## Large Emails
+
+The Microsoft Graph API rejects a request that sends an email in a single call once it grows beyond about 4 MB. The *Microsoft Graph Backend for Django* therefore sends every email that stays below that limit exactly as before, in one request, and only falls back to a longer route for an email that is too large for it. An email whose attachments alone cannot fit into a single request is not even encoded for it, so a large file is only encoded once, for its upload.
+
+For such an email, the backend creates the message in the mailbox first, without its attachments. Every attachment is then added to that message on its own, either in a single request, or, if the attachment is 3 MB or larger, through an upload session that transfers it in chunks. Once all attachments are in place, the message is sent. If an attachment cannot be added, the unsent message is deleted again, so that no leftover draft remains in the mailbox.
+
+> [!IMPORTANT]
+> Because the message exists in the mailbox while it is being assembled, this route requires the *application permission* `Mail.ReadWrite`, in addition to the `Mail.Send` permission that all other emails need. In the [more restrictive](#more-restrictive) and [most restrictive](#most-restrictive) modes, the Exchange Online role assignment needs to grant `Application Mail.ReadWrite` accordingly. Without that permission, emails below the limit are unaffected and keep being sent as before.
+
+The limits are class attributes rather than settings, so that the backend works without further configuration. A subclass can adjust them, for example to send an email through the mailbox earlier than Microsoft requires.
+
+| Attribute                  | Default | Description |
+|----------------------------|---------|-------------|
+| MAX_SENDMAIL_SIZE          | 3500000 | The size in bytes up to which an encoded email is sent in a single request. |
+| MAX_INLINE_ATTACHMENT_SIZE | 3145728 | The size in bytes from which an attachment is uploaded in chunks instead of in a single request. |
+| UPLOAD_CHUNK_SIZE          | 4194304 | The size in bytes of a single chunk of an upload session. |
+
+```python
+from msgraphbackend import MSGraphBackend
+
+
+class SmallerMailBackend(MSGraphBackend):
+    MAX_SENDMAIL_SIZE = 1_000_000
+```
+
+
 ## Notes
 
 The *Microsoft Graph Backend for Django* sends email not in the Microsoft Graph-typical JSON, but in the MIME format. This is due to how `django.core.mail.message.EmailMessage` internally works. Its `message()` method returns the email in MIME format. Rather than writing a custom converter from MIME to JSON, that could introduce additional bugs, the format is left unchanged. The Microsoft's own [Graph SDK for Python](https://github.com/microsoftgraph/msgraph-sdk-python) does not support sending emails in MIME format.

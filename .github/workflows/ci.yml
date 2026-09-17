@@ -36,6 +36,10 @@ jobs:
         ruff check --no-fix --output-format=github
         # Stop the build if Ruff would reformat any files
         ruff format --check
+    - name: Test
+      run: |
+        pip install -e .
+        python -m unittest discover --verbose
     - name: Build
       run: |
         pip install build
