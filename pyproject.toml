@@ -33,9 +33,13 @@ Repository = "https://github.com/danielniccoli/django-msgraphbackend.git"
 Issues = "https://github.com/danielniccoli/django-msgraphbackend/issues"
 
 [project.optional-dependencies]
+certificate = [
+    "cryptography>=42",
+]
 dev = [
     "pyrefly>=1.2.0",
     "django-stubs",
+    "cryptography>=42",
 ]
 
 [tool.pyrefly]
